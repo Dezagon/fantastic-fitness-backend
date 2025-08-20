@@ -4,7 +4,7 @@ from models import Member, Trainer, Class
 # CREATE
 class CreateMemberRequest(BaseModel):
     name: str
-    classes: list[Class]
+    classes: list[Class] | None = None
     active: bool
 
 class CreateTrainerRequest(BaseModel):

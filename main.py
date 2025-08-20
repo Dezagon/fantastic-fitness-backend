@@ -30,17 +30,30 @@ async def get_classes(db: Session = Depends(get_db)) -> list[Class]:
 
 # GET: BY ID
 @app.get("/members/{member_id}", status_code=status.HTTP_200_OK)
-async def get_member_by_id(member_id, db: Session = Depends(get_db)):
+async def get_member_by_id(member_id, db: Session = Depends(get_db)) -> Member:
     member: Member | None = db.get(Member, member_id)
     if member == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Member with ID of {member_id} not found")
     return member
 
+@app.get("/trainers/{trainer_id}", status_code=status.HTTP_200_OK)
+async def get_trainer_by_id(trainer_id, db: Session = Depends(get_db)) -> Trainer:
+    trainer: Trainer | None = db.get(Trainer, trainer_id)
+    if trainer == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Trainer with ID of {trainer_id} not found")
+    return trainer
+
+@app.get("/classes/{class_id}", status_code=status.HTTP_200_OK)
+async def get_class_by_id(class_id: int, db: Session = Depends(get_db)) -> Class:
+    course: Class | None = db.get(Class, class_id)
+    if course == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Class with ID of {class_id} not found")
+    return course
 
 # CREATE
 @app.post("/members", status_code=status.HTTP_201_CREATED)
 async def create_member(create_member_request: CreateMemberRequest, db: Session = Depends(get_db)) -> int:
-    member: Member = Member(create_member_request.model_dump())
+    member: Member = Member(create_member_request.model_dump(), id=len(db.exec(select(Member)).all()) + 1)
     db.add(member)
     db.commit()
     db.refresh(member)
@@ -48,7 +61,7 @@ async def create_member(create_member_request: CreateMemberRequest, db: Session 
 
 @app.post("/trainers", status_code=status.HTTP_201_CREATED)
 async def create_trainer(create_trainer_request: CreateTrainerRequest, db: Session = Depends(get_db)) -> int:
-    trainer: Trainer = Trainer(**create_trainer_request.model_dump())
+    trainer: Trainer = Trainer(**create_trainer_request.model_dump(), id=len(db.exec(select(Member)).all()) + 1)
     db.add(trainer)
     db.commit()
     db.refresh(trainer)
@@ -56,7 +69,7 @@ async def create_trainer(create_trainer_request: CreateTrainerRequest, db: Sessi
 
 @app.post("/classes", status_code=status.HTTP_201_CREATED)
 async def create_class(create_class_request: CreateClassRequest, db: Session = Depends(get_db)) -> int:
-    course: Class = Class(**create_class_request.model_dump())
+    course: Class = Class(**create_class_request.model_dump(), id=len(db.exec(select(Member)).all()) + 1)
     db.add(course)
     db.refresh()
     db.commit(course)
@@ -80,7 +93,7 @@ async def check_member_into_class(class_id: int, member_id: int, db: Session = D
 # PATCH
 @app.patch("/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_member(member_id: int, update_member_request: UpdateMemberRequest, db: Session = Depends(get_db)):
-    member = Member | None = db.get(Member, member_id)
+    member: Member | None = db.get(Member, member_id)
     if member == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Member with ID of {member_id} not found")
     
