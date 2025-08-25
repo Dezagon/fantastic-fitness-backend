@@ -23,8 +23,8 @@ class Trainer(SQLModel, table=True):
 class Class(SQLModel, table=True):
     id: int | None = Field(primary_key=True)
     name: str
-    trainer_id: int = Field(foreign_key="trainer.id")
-    trainer: Trainer = Relationship(back_populates="classes")
+    trainer_id: int | None = Field(foreign_key="trainer.id")
+    trainer: Trainer | None = Relationship(back_populates="classes")
     members: list[Member] = Relationship(back_populates="classes", link_model=Attendance)
     date: str
     duration: int
