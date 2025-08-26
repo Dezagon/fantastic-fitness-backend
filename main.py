@@ -4,7 +4,7 @@ from sqlalchemy import func
 from database import get_db
 
 from models import Member, Trainer, Class, Attendance
-from schemas import GetMemberResponse, GetTrainerResponse, GetClassResponse, AttendancePerClassResponse, ClassResponse, CreateMemberRequest, CreateTrainerRequest, CreateClassRequest, UpdateMemberRequest, UpdateTrainerRequest, UpdateClassRequest
+from schemas import GetMemberResponse, GetTrainerResponse, GetClassResponse, AttendancePerClassResponse, AttendancePerTrainerResponse, ClassResponse, CreateMemberRequest, CreateTrainerRequest, CreateClassRequest, UpdateMemberRequest, UpdateTrainerRequest, UpdateClassRequest
 
 app = FastAPI()
 router = APIRouter()
@@ -54,32 +54,50 @@ async def get_class_by_id(class_id: int, db: Session = Depends(get_db)) -> Class
 
 # GET REPORTS
 # Attendance per class (count per class_id)
-@router.get("/attendance/courses", tags=["attendance"], status_code=status.HTTP_200_OK)
-async def get_attendance_per_class(db: Session = Depends(get_db)):
-    final_results: list[str] = []
-    results = db.exec(select(Attendance.member_id, func.count(Attendance.class_id).label("attendance_per_class")).group_by(Attendance.member_id)).all()
-    for member_id, attendance_per_class in results:
-        final_results.append(f"Member ID: {member_id}, Classes attended: {attendance_per_class}")
+@router.get("/attendance/classes", tags=["attendance"], status_code=status.HTTP_200_OK)
+async def get_attendance_per_class(db: Session = Depends(get_db)) -> list[AttendancePerClassResponse]:
+    final_results: list[AttendancePerClassResponse] = []
+    results = dict(db.exec(select(Attendance.class_id, func.count(Attendance.member_id).label("attendance_per_class")).group_by(Attendance.class_id)).all())
+    for k, v in results.items():
+        final_results.append(AttendancePerClassResponse(class_id=k, attendance_total=v))
     return final_results
+
+@router.get("/attendance/classes/{class_id}", tags=["attendance"], status_code=status.HTTP_200_OK)
+async def get_attendance_per_class_id(class_id: int, db: Session = Depends(get_db)) -> AttendancePerClassResponse:
+    course: Class | None = db.get(Class, class_id)
+    if course == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Class with ID of {class_id} not found")
+    if len(course.members) == 0:
+        return AttendancePerClassResponse(class_id= class_id, attendance_total=0)
+    results = dict(db.exec(select(Attendance.class_id, func.count(Attendance.member_id).label("attendance_per_class")).where(Attendance.class_id == class_id).group_by(Attendance.class_id)).all())
+    for k, v in results.items():
+        return AttendancePerClassResponse(class_id=k, attendance_total=v)
+
+
 
 #Attendance per trainer (how many members attend their classes)
-@router.get("/attendance/attendance_per_trainer", tags=["attendance"], status_code=status.HTTP_200_OK)
-async def get_attendance_per_trainer(db: Session = Depends(get_db)):
-    final_results: list[str] = []
-    results = db.exec(select(Trainer.id, func.count(Trainer.classes).label("members_attended")).group_by(Trainer.id))
-    for trainer_id, members_attended in results:
-        final_results.append(f"Trainer ID: {trainer_id}, Total members attended: {members_attended}")
-    return final_results
+@router.get("/attendance/trainers/{trainer_id}", tags=["attendance"], status_code=status.HTTP_200_OK)
+async def get_attendance_per_trainer(trainer_id: int, db: Session = Depends(get_db)) -> AttendancePerTrainerResponse:
+    trainer: Trainer | None = db.get(Trainer, trainer_id)
+    if trainer == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Trainer with ID of {trainer_id} not found")
+    results = dict(db.exec(select(Trainer.id, func.count(Class.members)).where(Class.trainer_id == trainer_id).group_by(Class.trainer_id)).all())
+
+    for k, v in results.items():
+        return AttendancePerTrainerResponse(trainer_id=k, attendance_total=v)
 
 
-# #Most popular day of the week for classes (group by date)
-# @router.get("/attendance/day_of_week", tags=["attendance"], status_code=status.HTTP_200_OK)
-# async def get_attendance_by_day_of_week(db: Session = Depends(get_db)):
-#     final_results: list[str] = []
-#     results = db.exec(select(Class.id, func.count(Class.members).label()))
 
-# # Active members
-# @router.get("/attendance/active_members", tags=["attendance"], status_code=status.HTTP_200_OK)
+#Most popular day of the week for classes (group by date)
+@router.get("/attendance/day_of_week", tags=["attendance"], status_code=status.HTTP_200_OK)
+async def get_attendance_by_day_of_week(db: Session = Depends(get_db)):
+    return dict(db.exec(select(Class.date, func.count(Class.date)).group_by(Class.date)).all())
+
+# Active members
+@router.get("/attendance/active_members", tags=["attendance"], status_code=status.HTTP_200_OK)
+async def get_active_members(db: Session = Depends(get_db)):
+    # Returns IDs of members who are active
+    return db.exec(select(Member.id).where(Member.active == True)).all()
 
 # CREATE
 @router.post("/members", tags=["members"], status_code=status.HTTP_201_CREATED)

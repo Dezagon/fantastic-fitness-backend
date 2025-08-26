@@ -36,8 +36,12 @@ class ClassResponse(BaseModel):
 # GET ATTENDANCE PER CLASS
 class AttendancePerClassResponse(BaseModel):
     class_id: int 
-    class_name: str
     attendance_total: int
+
+# GET ATTENDANCE PER TRAINER
+class AttendancePerTrainerResponse(BaseModel):
+    trainer_id: int
+    attendance_total: int | None = 0
 
 
 
